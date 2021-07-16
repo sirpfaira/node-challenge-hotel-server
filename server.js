@@ -6,6 +6,8 @@ const app = express();
 var moment = require('moment');
 moment().format('YYYY-MM-DD');
 
+var emailValidator = require('email-validator');
+
 app.use(express.json());
 app.use(cors());
 
@@ -46,12 +48,12 @@ app.get('/bookings/search', function (req, res) {
     if (foundBookings.length > 0) {
       res.status(200).json(foundBookings);
     } else {
-      res.status(200).send(`No customer booked on ${date}!`);
+      res.status(200).send(`No customer booked on "${date}"!`);
     }
   } else {
     res
       .status(404)
-      .send(`Your search request should include a variable term or date`);
+      .send(`Your search request should include a variable "term" or "date"`);
   }
 });
 
@@ -60,26 +62,52 @@ app.get('/bookings/:bookingId', function (req, res) {
   const responseObject = allBookings.find((booking) => booking.id == bookingId);
   responseObject
     ? res.json(responseObject)
-    : res.status(400).send(`Booking with ID: ${bookingId} was not found`);
+    : res.status(400).send(`Booking with ID: "${bookingId}" was not found`);
 });
 
-//GET    | /bookings/search?date=2019-05-20 | return all bookings spanning the given date
-// should return bookings where indate<=date && outdate >=date
-
 app.post('/bookings', function (req, res) {
-  const newBooking = req.body;
+  const {
+    title,
+    firstName,
+    surname,
+    email,
+    roomId,
+    checkInDate,
+    checkOutDate,
+  } = req.body;
+
   if (
-    newBooking.title &&
-    newBooking.firstName &&
-    newBooking.surname &&
-    newBooking.email &&
-    newBooking.roomId &&
-    newBooking.checkInDate &&
-    newBooking.checkOutDate
+    title &&
+    firstName &&
+    surname &&
+    email &&
+    roomId &&
+    checkInDate &&
+    checkOutDate
   ) {
-    newBooking.id = allBookings.length + 1;
-    allBookings.push(newBooking);
-    res.send(`Booked successfully on ${moment().format('YYYY-MM-DD')}`);
+    if (emailValidator.validate(email)) {
+      if (moment(checkInDate).isBefore(moment(checkOutDate))) {
+        allBookings.push({
+          id: allBookings.length + 1,
+          title: title,
+          firstName: firstName,
+          surname: surname,
+          email: email,
+          roomId: roomId,
+          checkInDate: checkInDate,
+          checkOutDate: checkOutDate,
+        });
+        res.send(`Booked successfully on ${moment().format('YYYY-MM-DD')}`);
+      } else {
+        res
+          .status(400)
+          .send(
+            `The Check In Date: "${checkInDate}" should be before Check Out Date: "${checkOutDate}"`
+          );
+      }
+    } else {
+      res.status(400).send(`The email address "${email}" is invalid!`);
+    }
   } else {
     res.status(400).send('All fields are required!');
   }
@@ -93,7 +121,7 @@ app.delete('/bookings/:bookingId', function (req, res) {
     allBookings.splice(allBookings.indexOf(responseObject), 1);
     res.send(`Booking #${bookingId} deleted!`);
   } else {
-    res.status(404).send(`Booking with ID: ${bookingId} was not found`);
+    res.status(404).send(`Booking with ID: "${bookingId}" was not found`);
   }
 });
 const PORT = process.env.PORT || 3000;
