@@ -3,6 +3,8 @@ const cors = require('cors');
 const allBookings = require('./bookings.json');
 
 const app = express();
+var moment = require('moment');
+moment().format('YYYY-MM-DD');
 
 app.use(express.json());
 app.use(cors());
@@ -19,10 +21,10 @@ app.get('/bookings', function (req, res) {
   res.json(allBookings);
 });
 
-app.get('/bookings/search', function (request, response) {
-  const { term } = request.query;
+app.get('/bookings/search', function (req, res) {
+  const { term, date } = req.query;
   if (term) {
-    response
+    res
       .status(200)
       .json(
         allBookings.filter(
@@ -32,6 +34,24 @@ app.get('/bookings/search', function (request, response) {
             booking.email.toUpperCase().includes(term.toUpperCase())
         )
       );
+  } else if (date) {
+    const foundBookings = allBookings.filter(
+      (booking) =>
+        (moment(date).isSame(booking.checkInDate) ||
+          moment(booking.checkInDate).isBefore(date)) &&
+        (moment(date).isSame(booking.checkOutDate) ||
+          moment(booking.checkOutDate).isAfter(date))
+    );
+
+    if (foundBookings.length > 0) {
+      res.status(200).json(foundBookings);
+    } else {
+      res.status(200).send(`No customer booked on ${date}!`);
+    }
+  } else {
+    res
+      .status(404)
+      .send(`Your search request should include a variable term or date`);
   }
 });
 
@@ -59,7 +79,7 @@ app.post('/bookings', function (req, res) {
   ) {
     newBooking.id = allBookings.length + 1;
     allBookings.push(newBooking);
-    res.send('Booked successfully!');
+    res.send(`Booked successfully on ${moment().format('YYYY-MM-DD')}`);
   } else {
     res.status(400).send('All fields are required!');
   }
